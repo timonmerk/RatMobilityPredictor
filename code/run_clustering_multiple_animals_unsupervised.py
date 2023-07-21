@@ -19,19 +19,18 @@ from cebra.models.model import _OffsetModel, ConvolutionalModelMixin
 class Offset10Model(_OffsetModel, ConvolutionalModelMixin):
     """CEBRA model with a 10 sample receptive field."""
 
-    def __init__(self, num_neurons, num_units, num_output, normalize=True):  # normalize=False for MSE?
+    def __init__(self, num_neurons, num_units, num_output, normalize=True):
         if num_units < 1:
             raise ValueError(
                 f"Hidden dimension needs to be at least 1, but got {num_units}."
             )
         super().__init__(
-            nn.Conv1d(num_neurons, num_units, 51),
+            nn.Conv1d(num_neurons, num_units, 2),
             nn.GELU(),
-            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 11), nn.GELU()),
-            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 11), nn.GELU()),
-            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 11), nn.GELU()),
-            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 11), nn.GELU()),
-            nn.Conv1d(num_units, num_output, 10),
+            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 3), nn.GELU()),
+            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 3), nn.GELU()),
+            cebra_layers._Skip(nn.Conv1d(num_units, num_units, 3), nn.GELU()),
+            nn.Conv1d(num_units, num_output, 3),
             num_input=num_neurons,
             num_output=num_output,
             normalize=normalize,
@@ -39,7 +38,7 @@ class Offset10Model(_OffsetModel, ConvolutionalModelMixin):
 
     def get_offset(self) -> cebra.data.datatypes.Offset:
         """See :py:meth:`~.Model.get_offset`"""
-        return cebra.data.Offset(50, 50)
+        return cebra.data.Offset(5, 5)
 
 if __name__ == "__main__":
     
@@ -50,12 +49,11 @@ if __name__ == "__main__":
 
     def define_CEBRA_model():
         cebra_model = CEBRA(
-            model_architecture = "my-model",#"my-model",#"offset40-model-4x-subsample",#'offset40-model-4x-subsample', # previously used: offset1-model-v2'    # offset10-model  # my-model
+            model_architecture = "offset40-model-4x-subsample",#'offset40-model-4x-subsample', # previously used: offset1-model-v2'    # offset10-model  # my-model
             batch_size = 100,
             temperature_mode="auto",
-            learning_rate = 0.005,  # learning rate = 0.005
-            max_iterations = 500,
-            distance="euclidean",
+            learning_rate = 0.005,
+            max_iterations = 1000,
             #time_offsets = 10,
             output_dimension = 3,  # check 10 for better performance
             device = "cuda",
@@ -74,12 +72,10 @@ if __name__ == "__main__":
     for ANIMAL_ID in df["ANIMAL_ID"].unique():
         for RUN in df.query("ANIMAL_ID == @ANIMAL_ID")["RUN"].unique():
             df_query = df.query("ANIMAL_ID == @ANIMAL_ID and RUN == @RUN")
-            #l_.append(stats.zscore(df_query.iloc[:, 1:-4], axis=0))
-            l_.append(df_query.iloc[:, 1:-4])
+            l_.append(stats.zscore(df_query.iloc[:, 1:-4], axis=0))
             label_.append(df_query.iloc[:, -1])
 
     X_train = pd.concat(l_)
-    X_train = stats.zscore(X_train, axis=0)
     y_train = np.concatenate(label_)
 
 
@@ -102,7 +98,7 @@ if __name__ == "__main__":
 
     # challenge: how to transform the individual labels into immobility (r), interruption (g), gait (b)
 
-    cebra_model.fit(X_train, y_train)  # y_train
+    cebra_model.fit(X_train)  # y_train
 
     cebra.plot_loss(cebra_model)
     cebra.plot_temperature(cebra_model)
@@ -119,10 +115,10 @@ if __name__ == "__main__":
     #plt.axis("off")
     # plt.savefig("3DEmbedding.pdf")
 
-    embedding_scale = 10
+    embedding_scale = 11
     fig = plt.figure(figsize=(10,10), dpi=300)
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(X_train_emb[::embedding_scale, 0], X_train_emb[::embedding_scale, 1], X_train_emb[::embedding_scale, 2], c=y_train[::(embedding_scale)])  # c=y_train[::(embedding_scale*4)
+    ax.scatter(X_train_emb[::embedding_scale, 0], X_train_emb[::embedding_scale, 1], X_train_emb[::embedding_scale, 2], c=y_train[::(embedding_scale*4)])  # c=y_train[::(embedding_scale*4)
     plt.show()
 
     # implement cross validation and check performance
@@ -144,16 +140,16 @@ if __name__ == "__main__":
 
         cebra_model = define_CEBRA_model()
 
-        cebra_model.fit(X_train, y_train)
+        cebra_model.fit(X_train)  # y_train
 
         X_train_emb = cebra_model.transform(X_train)
         X_test_emb = cebra_model.transform(X_test)
-        model_regressor = linear_model.LogisticRegression().fit(X_train_emb, y_train)
+        model_regressor = linear_model.LogisticRegression().fit(X_train_emb, y_train[::4])
 
         y_pr = model_regressor.predict(X_test_emb)
 
         pr_.append(y_pr)
-        true_.append(y_test)
+        true_.append(y_test[::4])
 
     # get a certain set of performances
 
