@@ -44,7 +44,7 @@ y_train = np.concatenate(label_)
 umap_model = umap.UMAP(n_neighbors=5, min_dist=0.3, metric='euclidean')
 umap_result = umap_model.fit_transform(X_train)
 
-plt.scatter(umap_result[:, 0], umap_result[:, 1], c=y_train[::10], s=5)
+plt.scatter(umap_result[:, 0], umap_result[:, 1], c=y_train[:], s=5)
 plt.xlabel('UMAP 1')
 plt.ylabel('UMAP 2')
 plt.show()

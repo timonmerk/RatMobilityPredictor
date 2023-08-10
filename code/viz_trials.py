@@ -7,7 +7,7 @@ from sklearn import model_selection
 from sklearn import metrics
 from scipy import stats
 
-df = pd.read_pickle(os.path.join("data", "feat_df.pkl"))
+df = pd.read_pickle(os.path.join("data", "feat_df_v01.pkl"))
 
 animals = df["ANIMAL_ID"].unique()
 runs = df.query("ANIMAL_ID == @animals[0]")["RUN"].unique()
